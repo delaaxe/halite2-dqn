@@ -1,24 +1,8 @@
-"""
-Welcome to your first Halite-II bot!
-
-This bot's name is Settler. It's purpose is simple (don't expect it to win complex games :) ):
-1. Initialize game
-2. If a ship is not docked and there are unowned planets
-2.a. Try to Dock in the planet if close enough
-2.b If not, go towards the planet
-
-Note: Please do not place print statements here as they are used to communicate with the Halite engine. If you need
-to log anything use the logging module.
-"""
-# Let's start by importing the Halite Starter Kit so we can interface with the Halite engine
-# Then let's import the logging module so we can print out information
 import pickle
-import logging
 import itertools
 import subprocess
 import multiprocessing
 
-import urllib3
 import requests
 import numpy as np
 import tensorflow as tf
@@ -31,16 +15,12 @@ from baselines import deepq
 from baselines.deepq.replay_buffer import ReplayBuffer
 from baselines.common.schedules import LinearSchedule
 
+
 import hlt
-from learn import common, mediator, graph_builder
+from learn import common, broker, graph_builder
 
 
-def softmax(x):
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum()
-
-
-class Mediator:
+class Broker:
     def __init__(self, base_url: str):
         self.base_url = base_url
 
@@ -70,12 +50,10 @@ class Mediator:
 
 
 class HaliteEnv(gym.Env):
-    def __init__(self, mediator):
-        self.mediator: Mediator = mediator
-        self.halite_command = ['./halite', '-d', '240 160', 'python3 MyBot.py', './run_mlbot.sh']
+    def __init__(self, broker):
+        self.broker: Broker = broker
+        self.halite_command = ['./halite', '-d', '240 160', 'python3 MyLearningBot.py', './run_mlbot.sh']
         self.halite_process = None
-        #self.action_space = gym.spaces.Discrete(common.PLANET_MAX_NUM)
-        #self.action_space = gym.spaces.Box(low=0, high=100, shape=(common.PLANET_MAX_NUM,))
         high = 1000 * np.ones((common.PLANET_MAX_NUM,))
         low = -high
         self.action_space = gym.spaces.Box(low=low, high=high)
@@ -90,7 +68,7 @@ class HaliteEnv(gym.Env):
         self.last_map = None
 
     def _reset(self):
-        print('reset')
+        #print('reset')
         self.state = None
         try:
             self.file.close()
@@ -99,7 +77,7 @@ class HaliteEnv(gym.Env):
         self.file = open('stdout-halite.log', 'w')
 
         try:
-            self.mediator.kill()
+            self.broker.kill()
         except:
             pass
 
@@ -108,18 +86,18 @@ class HaliteEnv(gym.Env):
         except:
             pass
 
-        self.mediator_process = multiprocessing.Process(target=mediator.main)
+        self.mediator_process = multiprocessing.Process(target=broker.main)
         self.mediator_process.start()
         while True:
             try:
-                self.mediator.ping()
+                self.broker.ping()
                 break
             except (requests.ConnectionError, requests.ReadTimeout):
                 pass
 
         self.halite_process = subprocess.Popen(self.halite_command, stdout=self.file)
 
-        self.state, self.last_map = self.mediator.receive_state(timeout=100)
+        self.state, self.last_map = self.broker.receive_state(timeout=100)
 
         self.turn = 0
         self.total_reward = 0
@@ -130,18 +108,9 @@ class HaliteEnv(gym.Env):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
         self.turn += 1
 
-        #if not np.isclose(action[0], 0) and not np.isclose(action[0], 1):
-        #print('non singular action', action)
-        #action = softmax(action)
-        #actions = softmax(action)
-        #actions = action
-
-        #actions = np.zeros((common.PLANET_MAX_NUM,))
-        #actions[action] = 1
-
         try:
-            self.mediator.send_action(action)
-            self.state, map = self.mediator.receive_state(timeout=2)
+            self.broker.send_action(action)
+            self.state, map = self.broker.receive_state(timeout=2)
         except requests.ReadTimeout:
             me = self.previous_map.get_me()
             players = self.previous_map.all_players()
@@ -199,7 +168,7 @@ def model(inpt, num_actions, scope, reuse=False):
 def main():
     print('main')
     with U.make_session(8):
-        env = HaliteEnv(Mediator('http://localhost:5000'))
+        env = HaliteEnv(Broker('http://localhost:5000'))
 
         make_obs_ph = lambda name: U.BatchInput(env.observation_space.shape, name=name)
         # Create all the functions necessary to train the model
@@ -209,6 +178,15 @@ def main():
             num_actions=env.action_space.n,
             optimizer=tf.train.AdamOptimizer(learning_rate=5e-4),
         )
+
+        act_params = {
+            'make_obs_ph': make_obs_ph,
+            'q_func': model,
+            'num_actions': env.action_space.n,
+        }
+
+        act = deepq.simple.ActWrapper(act, act_params)
+
         # Create the replay buffer
         replay_buffer = ReplayBuffer(50000)
         # Create the schedule for exploration starting from 1 (every action is random) down to
@@ -248,14 +226,9 @@ def main():
                 # Update target network periodically.
                 if t % 1000 == 0:
                     update_target()
-                    '''
-                    act_params = {
-                        'make_obs_ph': make_obs_ph,
-                        'q_func': model,
-                        'num_actions': env.action_space.n,
-                    }
-                    deepq.simple.ActWrapper(act, act_params).save("halite_model.pkl")
-                    '''
+                    #act.save("halite_model.pkl")
+                    #U.save_state('model.pkl')
+                    #print('model saved')
 
             if done and len(episode_rewards) % 10 == 0:
                 logger.record_tabular("steps", t)

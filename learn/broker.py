@@ -1,3 +1,5 @@
+import sys
+
 import flask
 
 import logging
@@ -56,7 +58,6 @@ def reset():
 
 @app.route('/kill', methods=['GET'])
 def kill():
-    import sys
     sys.exit(0)
 
 
@@ -67,7 +68,7 @@ def inspect():
 
 
 def main():
-    app.run(threaded=True)
+    app.run(debug=False, threaded=True)
 
 
 if __name__ == '__main__':
