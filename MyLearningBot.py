@@ -6,7 +6,7 @@ import logging
 import requests
 
 import hlt
-from learn import common
+from dqn import common
 
 import pathlib
 log_file = pathlib.Path('stdout-LearningBot.log').open('w')
