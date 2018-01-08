@@ -90,6 +90,7 @@ class HaliteEnv(gym.Env):
         self.last_map = None
 
     def _reset(self):
+        print('reset')
         self.state = None
         try:
             self.file.close()
@@ -120,8 +121,8 @@ class HaliteEnv(gym.Env):
 
         self.state, self.last_map = self.mediator.receive_state(timeout=100)
 
-        self.total_reward = 0
         self.turn = 0
+        self.total_reward = 0
         return np.array(self.state).ravel()
 
     def _step(self, action):
@@ -240,8 +241,9 @@ def main():
                 #env.render()
             else:
                 # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
-                if t > 100:
+                if t > 1000:
                     obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(32)
+                    actions = tf.argmax(actions, axis=1)
                     train(obses_t, actions, rewards, obses_tp1, dones, np.ones_like(rewards))
                 # Update target network periodically.
                 if t % 1000 == 0:
