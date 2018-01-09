@@ -110,12 +110,9 @@ def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):
         eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
 
         q_values = q_func(observations_ph.get(), num_actions, scope="q_func")
-        #deterministic_actions = tf.argmax(q_values, axis=1)
         deterministic_actions = q_values
-        q_values_size = tf.shape(q_values)[1]
 
         batch_size = tf.shape(observations_ph.get())[0]
-        #random_actions = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=num_actions, dtype=tf.int64)
         random_index = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=num_actions, dtype=tf.int64)
         random_actions = tf.one_hot(random_index, depth=num_actions)
         chose_random = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=1, dtype=tf.float32) < eps

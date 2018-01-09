@@ -45,6 +45,11 @@ class Broker:
 class HaliteEnv(gym.Env):
     def __init__(self, broker):
         self.broker: Broker = broker
+        self.turn = 0
+        self.total_reward = 0
+        self.state = None
+        self.viewer = None
+        self.last_map = None
         self.halite_command = ['./halite', '-d', '240 160', 'python3 MyLearningBot.py', './run_mlbot.sh']
         self.halite_process = None
         self.halite_logfile = None
@@ -55,15 +60,10 @@ class HaliteEnv(gym.Env):
         obs_num = 1 + dqn.common.PLANET_MAX_NUM*dqn.common.PER_PLANET_FEATURES
         self.observation_space = gym.spaces.Box(low=-10, high=3000, shape=(obs_num,))
 
-        self.turn = 0
-        self.total_reward = 0
-        self.viewer = None
-        self.state = None
-        self.last_map = None
-
     def _reset(self):
         #print('reset')
-        self.state = None
+        self.turn = 0
+        self.total_reward = 0
 
         self.broker.kill()
         global broker_process
@@ -84,11 +84,7 @@ class HaliteEnv(gym.Env):
         self.halite_process = subprocess.Popen(self.halite_command, stdout=self.halite_logfile)
 
         self.state, self.last_map = self.broker.receive_state(timeout=100)
-
-        self.turn = 0
-        self.total_reward = 0
-        observation = np.append(np.array(self.state).ravel(), self.turn)
-        return observation
+        return self.state
 
     def _step(self, action):
         #print('action', action)
@@ -105,37 +101,28 @@ class HaliteEnv(gym.Env):
             ennemy_ships = sum(len(player.all_ships()) for player in players if player != me)
 
             win = False
-            reward = 0
+            reward = -1
             if my_ships > ennemy_ships:
                 win = True
-                reward = 3 * (300 - self.turn)
-            elif my_ships < ennemy_ships:
-                reward = -500
+                reward = 1
 
-            self.total_reward += reward
             info = {
                 'win': win,
-                'total_reward': self.total_reward,
+                'rewards': self.total_reward,
+                'win_reward': reward,
                 'turns': self.turn,
                 'my_ships': my_ships,
                 'ennemy_ships': ennemy_ships,
             }
+            self.total_reward += reward
             print('episode:', info)
-            observation = np.append(np.array(self.state).ravel(), self.turn)
-            return observation, reward, True, info
+            return self.state, reward, True, info
 
         me = map.get_me()
         players = map.all_players()
         my_ships = me.all_ships()
 
-        reward = 1
-        for ship in my_ships:
-            if ship.docking_status == hlt.entity.Ship.DockingStatus.DOCKED:
-                reward += 1
-            elif ship.docking_status == hlt.entity.Ship.DockingStatus.DOCKING:
-                reward += .5
-            else:
-                reward += .1
+        reward = -.0005
 
         self.total_reward += reward
         self.previous_map = map
@@ -147,10 +134,7 @@ class HaliteEnv(gym.Env):
             'my_ships': len(my_ships),
             'ennemy_ships': ennemy_ships,
         }
-        #print('turn:', info)
-
-        observation = np.append(np.array(self.state).ravel(), self.turn)
-        return observation, reward, False, {}
+        return self.state, reward, False, info
 
     def _render(self, mode='human', close=False):
         if close:
