@@ -18,8 +18,6 @@ class Game:
         :param str s: String to send
         :return: nothing
         """
-        with open('stdout-SimpleBot.log', 'a') as fp:
-            fp.write('out: ' + s)
         sys.stdout.write(s)
 
     @staticmethod
@@ -29,8 +27,6 @@ class Game:
 
         :return: nothing
         """
-        with open('stdout-SimpleBot.log', 'a') as fp:
-            fp.write('\n')
         sys.stdout.write('\n')
         sys.stdout.flush()
 
@@ -43,8 +39,6 @@ class Game:
         :rtype: str
         """
         result = sys.stdin.readline().rstrip('\n')
-        with open('stdout-SimpleBot.log', 'a') as fp:
-            fp.write('in :' + result + '\n')
         logging.info('_get_string:', result)
         return result
 

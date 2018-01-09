@@ -69,7 +69,7 @@ The functions in this file can are used to create the following functions:
 
 """
 import tensorflow as tf
-import baselines.common.tf_util as U
+import dqn.tf_util as U
 
 
 def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):

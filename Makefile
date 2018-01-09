@@ -3,8 +3,9 @@
 default: training
 
 training:
-	python3 -m learn.train
+	python3 -m dqn.learn
 
-submission: 
-	zip -r submission.zip MyBot.py LANGUAGE hlt/
+submission:
+	rm -f submission.zip
+	zip -r submission.zip MyBot.py LANGUAGE dqn_model.pkl install.sh hlt/ dqn/
 

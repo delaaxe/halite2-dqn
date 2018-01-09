@@ -1,4 +1,6 @@
+import os
 import pickle
+import random
 import subprocess
 import multiprocessing
 
@@ -50,7 +52,6 @@ class HaliteEnv(gym.Env):
         self.state = None
         self.viewer = None
         self.last_map = None
-        self.halite_command = ['./halite', '-d', '240 160', 'python3 MyLearningBot.py', './run_mlbot.sh']
         self.halite_process = None
         self.halite_logfile = None
         high = 1000 * np.ones((dqn.common.PLANET_MAX_NUM,))
@@ -81,7 +82,8 @@ class HaliteEnv(gym.Env):
         if self.halite_logfile:
             self.halite_logfile.close()
         self.halite_logfile = open('stdout-halite.log', 'w')
-        self.halite_process = subprocess.Popen(self.halite_command, stdout=self.halite_logfile)
+        command = self.make_halite_command()
+        self.halite_process = subprocess.Popen(command, stdout=self.halite_logfile)
 
         self.state, self.last_map = self.broker.receive_state(timeout=100)
         return self.state
@@ -144,3 +146,18 @@ class HaliteEnv(gym.Env):
             return
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
+
+    def make_halite_command(self):
+        if os.name == 'nt':
+            command = ['.\halite.exe']
+        else:
+            command = ['./halite']
+        width = random.randint(260, 384)
+        if width % 2 == 1:
+            width += 1
+        height = int(width*2/3)
+        command += ['-d', f'{width} {height}']
+        command += ['python3 MyLearningBot.py', 'python3 MyMLStarterBot.py']
+        if random.randint(0, 1):
+            command += ['python3 MyMLStarterBot.py', 'python3 MyMLStarterBot.py']
+        return command

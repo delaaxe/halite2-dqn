@@ -2,13 +2,13 @@ import time
 
 import hlt
 import dqn.bot
-import dqn.learn
+import dqn.play
 
 
 class PlayingBot(dqn.bot.Bot):
     def __init__(self, name, model_path):
         self.turn = 0
-        self.act = dqn.learn.ActWrapper.load(model_path)
+        self.act = dqn.play.ActWrapper.load(model_path)
         self.game = hlt.Game(name)
         self.tag = self.game.map.my_id
         #self.log('init super bot')

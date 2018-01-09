@@ -1,7 +1,4 @@
-import os
-import dill
-import zipfile
-import tempfile
+import pathlib
 import traceback
 import itertools
 
@@ -15,51 +12,6 @@ from baselines.common.schedules import LinearSchedule
 import dqn
 
 from baselines.deepq.experiments import train_cartpole
-
-
-class ActWrapper(object):
-    def __init__(self, act, act_params):
-        self._act = act
-        self._act_params = act_params
-
-    @staticmethod
-    def load(path):
-        with open(path, "rb") as f:
-            model_data, act_params = dill.load(f)
-        act = dqn.graph.build_act(**act_params)
-        sess = tf.Session()
-        sess.__enter__()
-        with tempfile.TemporaryDirectory() as td:
-            arc_path = os.path.join(td, "packed.zip")
-            with open(arc_path, "wb") as f:
-                f.write(model_data)
-
-            zipfile.ZipFile(arc_path, 'r', zipfile.ZIP_DEFLATED).extractall(td)
-            U.load_state(os.path.join(td, "model"))
-
-        return ActWrapper(act, act_params)
-
-    def __call__(self, *args, **kwargs):
-        return self._act(*args, **kwargs)
-
-    def save(self, path=None):
-        """Save model to a pickle located at `path`"""
-        if path is None:
-            path = os.path.join(logger.get_dir(), "model.pkl")
-
-        with tempfile.TemporaryDirectory() as td:
-            U.save_state(os.path.join(td, "model"))
-            arc_name = os.path.join(td, "packed.zip")
-            with zipfile.ZipFile(arc_name, 'w') as zipf:
-                for root, dirs, files in os.walk(td):
-                    for fname in files:
-                        file_path = os.path.join(root, fname)
-                        if file_path != arc_name:
-                            zipf.write(file_path, os.path.relpath(file_path, td))
-            with open(arc_name, "rb") as f:
-                model_data = f.read()
-        with open(path, "wb") as f:
-            dill.dump((model_data, self._act_params), f)
 
 
 def model(inpt, num_actions, scope, reuse=False):
@@ -76,13 +28,18 @@ def model(inpt, num_actions, scope, reuse=False):
 
 def main():
     print('main')
+    stats_file = pathlib.Path('stats.csv')
+    if stats_file.exists():
+        stats_file.unlink()
+
     with U.make_session(num_cpu=4):
         broker = dqn.env.Broker('http://localhost:5000')
         env = dqn.env.HaliteEnv(broker)
+        observation_shape = env.observation_space.shape
 
         def make_obs_ph(name):
-            import baselines.common.tf_util as U
-            return U.BatchInput(env.observation_space.shape, name=name)
+            import dqn.tf_util as U
+            return U.BatchInput(observation_shape, name=name)
 
         # Create all the functions necessary to train the model
         act, train, update_target, debug = dqn.graph.build_train(
@@ -92,7 +49,7 @@ def main():
             optimizer=tf.train.AdamOptimizer(learning_rate=5e-4),
         )
 
-        act = ActWrapper(act, {
+        act = dqn.play.ActWrapper(act, {
             'make_obs_ph': make_obs_ph,
             'q_func': model,
             'num_actions': env.action_space.n,
@@ -131,7 +88,7 @@ def main():
                 episode_rewards.append(0)
                 wins.append(info['win'])
 
-            win_rate = round(np.mean(wins[-100:]), 1)
+            win_rate = round(np.mean(wins[-100:]), 4)
             is_solved = t > 100 and win_rate >= 99
             if is_solved:
                 print('solved')
@@ -146,8 +103,18 @@ def main():
                 if t > learning_starts and t % target_network_update_freq == 0:
                     update_target()
 
-            mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
+            mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 4)
             num_episodes = len(episode_rewards)
+
+            if done:
+                info['win_rate'] = win_rate
+                info['mean_100ep_reward'] = mean_100ep_reward
+                if not stats_file.exists():
+                    with stats_file.open('w') as fp:
+                        fp.write(','.join(info.keys()) + '\n')
+                with stats_file.open('a') as fp:
+                    fp.write(','.join(map(str, info.values())) + '\n')
+
             if done and num_episodes % 10 == 0:
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", len(episode_rewards))
@@ -161,8 +128,6 @@ def main():
                     logger.log("Saving model due to mean reward increase: {} -> {}".format(
                                saved_mean_reward, mean_100ep_reward))
                     act.save('dqn_model.pkl')
-                    xact = ActWrapper.load('dqn_model.pkl')
-                    print('xxx', xact)
                     saved_mean_reward = mean_100ep_reward
 
     act.save('dqn_model.pkl')
