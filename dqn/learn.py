@@ -112,9 +112,13 @@ def main():
             exploration_rate = int(100 * exploration.value(t))
 
             if done:
-                info['win_rate'] = win_rate
-                info['mean_100ep_reward'] = mean_100ep_reward
-                info['exploration_rate'] = exploration_rate
+                info = {
+                    'episode': len(episode_rewards),
+                    **info,
+                    'win_rate': win_rate,
+                    'mean_100ep_reward': mean_100ep_reward,
+                    'exploration_rate': exploration_rate,
+                }
                 print('episode', info)
                 if not stats_file.exists():
                     with stats_file.open('w') as fp:

@@ -1,3 +1,5 @@
-win,rewards,win_reward,turns,my_ships,ennemy_ships,win_rate,mean_100ep_reward,exploration_rate
-False,-0.037000000000000026,-1,75,2,17,0.0,-1.037,99
-False,-0.005000000000000001,-1,11,1,25,0.0,-1.021,99
+episode,win,turns,highest_planet_count,win_rate,mean_100ep_reward,exploration_rate
+2,False,105,2,0.0,-1.049,99
+3,False,59,2,0.0,-1.0375,99
+4,False,87,4,0.0,-1.0378,99
+5,False,125,3,0.0,-1.0428,98
