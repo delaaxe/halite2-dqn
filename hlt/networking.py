@@ -18,6 +18,9 @@ class Game:
         :param str s: String to send
         :return: nothing
         """
+        with open('stdout-QLearningBot-0.log', 'a') as fp:
+            fp.write(f'_send_string: {s}\n')
+            fp.flush()
         sys.stdout.write(s)
 
     @staticmethod
@@ -27,6 +30,9 @@ class Game:
 
         :return: nothing
         """
+        with open('stdout-QLearningBot-0.log', 'a') as fp:
+            fp.write(f'_done_sending\n')
+            fp.flush()
         sys.stdout.write('\n')
         sys.stdout.flush()
 

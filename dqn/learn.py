@@ -1,6 +1,7 @@
 import pathlib
 import traceback
 import itertools
+import datetime as dt
 
 import numpy as np
 import tensorflow as tf
@@ -18,7 +19,7 @@ from baselines.deepq.experiments import train_cartpole
 
 def model(inpt, num_actions, scope, reuse=False):
     """This model takes as input an observation and returns values of all actions."""
-    import tensorflow as tf
+    import tensorflow as tf  # need to keep imports here for serialization to work
     import tensorflow.contrib.layers as layers
     with tf.variable_scope(scope, reuse=reuse):
         out = inpt
@@ -34,9 +35,10 @@ def main():
     if stats_file.exists():
         stats_file.unlink()
 
+    broker = dqn.env.Broker('http://localhost:5000')
+    env = dqn.env.HaliteEnv(broker)
+
     with U.make_session(num_cpu=4):
-        broker = dqn.env.Broker('http://localhost:5000')
-        env = dqn.env.HaliteEnv(broker)
         observation_shape = env.observation_space.shape
 
         def make_obs_ph(name):
@@ -61,7 +63,7 @@ def main():
         replay_buffer = ReplayBuffer(50000)
         # Create the schedule for exploration starting from 1 (every action is random) down to
         # 0.02 (98% of actions are selected according to values predicted by the model).
-        exploration = LinearSchedule(schedule_timesteps=30000, initial_p=1.0, final_p=0.02)
+        exploration = LinearSchedule(schedule_timesteps=30000, initial_p=1.0, final_p=0.03)
 
         # Initialize the parameters and copy them to the target network.
         U.initialize()
@@ -107,10 +109,13 @@ def main():
 
             mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 4)
             num_episodes = len(episode_rewards)
+            exploration_rate = int(100 * exploration.value(t))
 
             if done:
                 info['win_rate'] = win_rate
                 info['mean_100ep_reward'] = mean_100ep_reward
+                info['exploration_rate'] = exploration_rate
+                print('episode', info)
                 if not stats_file.exists():
                     with stats_file.open('w') as fp:
                         fp.write(','.join(info.keys()) + '\n')
@@ -122,7 +127,7 @@ def main():
                 logger.record_tabular("episodes", len(episode_rewards))
                 logger.record_tabular("mean episode reward", mean_100ep_reward)
                 logger.record_tabular("mean win rate", win_rate)
-                logger.record_tabular("% time spent exploring", int(100 * exploration.value(t)))
+                logger.record_tabular("% time spent exploring", exploration_rate)
                 logger.dump_tabular()
 
             if done and (t > learning_starts and num_episodes > 100 and num_episodes % checkpoint_freq == 0):
@@ -133,6 +138,7 @@ def main():
                     saved_mean_reward = mean_100ep_reward
 
     act.save('dqn_model.pkl')
+    env.close()
 
 
 if __name__ == '__main__':

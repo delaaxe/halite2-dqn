@@ -2,6 +2,7 @@ import os
 import pickle
 import random
 import subprocess
+import datetime as dt
 import multiprocessing
 
 import requests
@@ -54,29 +55,30 @@ class HaliteEnv(gym.Env):
         self.last_map = None
         self.halite_process = None
         self.halite_logfile = None
+        self.last_reset = None
         high = 1000 * np.ones((dqn.common.PLANET_MAX_NUM,))
         self.action_space = gym.spaces.Box(low=-high, high=high)
         self.action_space.n = len(high)
         # turn + planet properties
-        obs_num = 1 + dqn.common.PLANET_MAX_NUM*dqn.common.PER_PLANET_FEATURES
+        obs_num = 1 + dqn.common.PLANET_MAX_NUM * dqn.common.PER_PLANET_FEATURES
         self.observation_space = gym.spaces.Box(low=-10, high=3000, shape=(obs_num,))
 
     def _reset(self):
+        #print(f'{dt.datetime.now()}: reset')
         self.turn = 0
         self.total_reward = 0
 
-        self.broker.kill()
         global broker_process
-        if broker_process:
-            broker_process.terminate()
-        broker_process = multiprocessing.Process(target=dqn.broker.main)
-        broker_process.start()
-        while True:
-            try:
-                self.broker.ping()
-                break
-            except (requests.ConnectionError, requests.ReadTimeout):
-                pass
+        if not broker_process:
+            broker_process = multiprocessing.Process(target=dqn.broker.main)
+            broker_process.start()
+            while True:
+                try:
+                    self.broker.ping()
+                    break
+                except (requests.ConnectionError, requests.ReadTimeout):
+                    pass
+        self.broker.reset()
 
         if self.halite_logfile:
             self.halite_logfile.close()
@@ -85,10 +87,13 @@ class HaliteEnv(gym.Env):
         self.halite_process = subprocess.Popen(command, stdout=self.halite_logfile)
 
         self.state, self.last_map = self.broker.receive_state(timeout=100)
+        self.last_step = dt.datetime.now()
         return self.state
 
     def _step(self, action):
-        #print('action', action)
+        #print(f'{dt.datetime.now()}: step (last took {dt.datetime.now() - self.last_step})')
+        self.last_step = dt.datetime.now()
+
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
         self.turn += 1
 
@@ -116,7 +121,6 @@ class HaliteEnv(gym.Env):
                 'ennemy_ships': ennemy_ships,
             }
             self.total_reward += reward
-            print('episode:', info)
             return self.state, reward, True, info
 
         me = map.get_me()
@@ -138,13 +142,15 @@ class HaliteEnv(gym.Env):
         return self.state, reward, False, info
 
     def _render(self, mode='human', close=False):
-        if close:
-            if self.viewer is not None:
-                self.viewer.close()
-                self.viewer = None
-            return
+        pass  # just watch replay
 
-        return self.viewer.render(return_rgb_array=mode == 'rgb_array')
+    def _close(self):
+        if self.halite_logfile:
+            self.halite_logfile.close()
+        if self.broker:
+            self.broker.kill()
+        if broker_process:
+            broker_process.terminate()
 
     def make_halite_command(self):
         if os.name == 'nt':
@@ -154,10 +160,10 @@ class HaliteEnv(gym.Env):
         width = random.randint(260, 384)
         if width % 2 == 1:
             width += 1
-        height = int(width*2/3)
-        command += ['-d', f'{width} {height}']
-        command += ['python3 MyLearningBot.py', 'python3 MyMLStarterBot.py']
+        height = int(width * 2/3)
+        command += ['--quiet', '--timeout', '--dimensions', f'{width} {height}']
+        command += ['python MyQLearningBot.py', 'python MyMLStarterBot.py']
         if random.randint(0, 1):
             pass
-            # command += ['python3 MyMLStarterBot.py', 'python3 MyMLStarterBot.py']
+            # command += ['python MyMLStarterBot.py', 'python MyMLStarterBot.py']
         return command

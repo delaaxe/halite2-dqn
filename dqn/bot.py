@@ -81,7 +81,13 @@ class Bot:
                 is_active
             ]
 
-        return np.append(np.array(feature_matrix).ravel(), self.turn)
+        def normalize_input(input_data):
+            m = input_data.mean()
+            s = input_data.std()
+            return (input_data - m) / (s + 1e-6)
+
+        features = np.append(np.array(feature_matrix).ravel(), self.turn)
+        return normalize_input(features)
 
     def produce_ships_to_planets_assignment(self, game_map, predictions):
         """

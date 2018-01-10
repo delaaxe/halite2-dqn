@@ -23,48 +23,56 @@ class Broker:
         return pickle.loads(response.content)
 
 
-class LearningBot(dqn.bot.Bot):
+class QLearningBot(dqn.bot.Bot):
     def __init__(self, name, broker):
         self.broker = broker
         self.turn = 0
         self.game = hlt.Game(name)
         tag = self.game.map.my_id
         self.log_file = pathlib.Path(f'stdout-{name}-{tag}.log')
+        with self.log_file.open('w') as fp:
+            fp.write('')
         self.log(f'Initialized bot {name} ({tag}) at {dt.datetime.now()}')
 
     def play(self):
         while True:
             self.turn += 1
-            self.log(f"turn {self.turn}")
+            self.log(f"{dt.datetime.now()}: turn {self.turn}")
             map = self.game.update_map()
+            self.log(f"{dt.datetime.now()}: map {map}")
             start_time = time.time()
 
             features = self.produce_features(map)
 
-            self.log(f'sending state')
+            self.log(f'{dt.datetime.now()}: sending features')
             self.broker.send_state((features, map))
-
-            self.log(f'receiving action')
+            self.log(f'{dt.datetime.now()}: done, sending features, waiting action')
             action = self.broker.receive_action()
-            self.log(f'received action {action}')
+            self.log(f'{dt.datetime.now()}: received action {action}')
 
             ships_to_planets_assignment = self.produce_ships_to_planets_assignment(map, action)
             commands = self.produce_commands(map, ships_to_planets_assignment, start_time)
-            self.log(f'commands: {commands}')
+            self.log(f'{dt.datetime.now()}: commands: {commands}')
 
+            self.log(f'{dt.datetime.now()}: sending...')
             self.game.send_command_queue(commands)
+            self.log(f'{dt.datetime.now()}: sent commands')
+
+    def log(self, value):
+        with self.log_file.open('a') as fp:
+            fp.write(value + '\n')
+            fp.flush()
 
 
 def main():
-    bot = None
     try:
         broker = Broker(base_url='http://localhost:5000')
-        bot = LearningBot('LearningBot', broker)
+        bot = QLearningBot('QLearningBot', broker)
         bot.play()
     except:
         import traceback
-        if bot:
-            bot.log(traceback.format_exc())
+        with open('exception-QLearningBot.log', 'w') as fp:
+            fp.write(traceback.format_exc())
 
 
 if __name__ == '__main__':
