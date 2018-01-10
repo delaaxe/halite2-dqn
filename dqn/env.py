@@ -9,8 +9,8 @@ import numpy as np
 import gym
 import gym.spaces
 
-import dqn
-import hlt
+import dqn.common
+import dqn.broker
 
 broker_process = None  # keep global to avoid pickling issues
 
@@ -62,7 +62,6 @@ class HaliteEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=-10, high=3000, shape=(obs_num,))
 
     def _reset(self):
-        #print('reset')
         self.turn = 0
         self.total_reward = 0
 
@@ -159,5 +158,6 @@ class HaliteEnv(gym.Env):
         command += ['-d', f'{width} {height}']
         command += ['python3 MyLearningBot.py', 'python3 MyMLStarterBot.py']
         if random.randint(0, 1):
-            command += ['python3 MyMLStarterBot.py', 'python3 MyMLStarterBot.py']
+            pass
+            # command += ['python3 MyMLStarterBot.py', 'python3 MyMLStarterBot.py']
         return command

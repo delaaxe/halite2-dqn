@@ -6,7 +6,7 @@ import datetime as dt
 import requests
 
 import hlt
-import dqn
+import dqn.bot
 
 
 class Broker:

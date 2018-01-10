@@ -1,7 +1,5 @@
 import time
 import heapq
-import pathlib
-import datetime as dt
 
 import numpy as np
 

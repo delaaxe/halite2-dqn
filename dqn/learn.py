@@ -9,7 +9,9 @@ from baselines import logger
 from baselines.deepq.replay_buffer import ReplayBuffer
 from baselines.common.schedules import LinearSchedule
 
-import dqn
+import dqn.env
+import dqn.graph
+import dqn.play
 
 from baselines.deepq.experiments import train_cartpole
 
