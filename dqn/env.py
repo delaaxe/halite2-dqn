@@ -164,6 +164,5 @@ class HaliteEnv(gym.Env):
         command += ['--quiet', '--timeout', '--dimensions', f'{width} {height}']
         command += ['python MyQLearningBot.py', 'python MyMLStarterBot.py']
         if random.randint(0, 1):
-            pass
-            # command += ['python MyMLStarterBot.py', 'python MyMLStarterBot.py']
+            command += ['python MyMLStarterBot.py', 'python MyMLStarterBot.py']
         return command

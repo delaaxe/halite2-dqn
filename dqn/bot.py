@@ -8,13 +8,6 @@ from dqn import common
 
 
 class Bot:
-    #def __init__(self, name):
-        #self.turn = 0
-        #self.game = hlt.Game(name)
-        #tag = self.game.map.my_id
-        #self.log_file = pathlib.Path(f'stdout-{name}-{tag}.log')
-        #self.log(f"Initialized bot {name} ({tag}) at {dt.datetime.now()}")
-
     def play(self):
         raise NotImplementedError
 

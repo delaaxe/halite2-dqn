@@ -11,8 +11,6 @@ class PlayingBot(dqn.bot.Bot):
         self.act = dqn.play.ActWrapper.load(model_path)
         self.game = hlt.Game(name)
         self.tag = self.game.map.my_id
-        #self.log('init super bot')
-        #self.log('act loaded')
 
     def play(self):
         while True:

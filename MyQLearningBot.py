@@ -37,26 +37,22 @@ class QLearningBot(dqn.bot.Bot):
     def play(self):
         while True:
             self.turn += 1
+
             self.log(f"{dt.datetime.now()}: turn {self.turn}")
             map = self.game.update_map()
-            self.log(f"{dt.datetime.now()}: map {map}")
             start_time = time.time()
 
             features = self.produce_features(map)
 
             self.log(f'{dt.datetime.now()}: sending features')
             self.broker.send_state((features, map))
-            self.log(f'{dt.datetime.now()}: done, sending features, waiting action')
             action = self.broker.receive_action()
-            self.log(f'{dt.datetime.now()}: received action {action}')
 
             ships_to_planets_assignment = self.produce_ships_to_planets_assignment(map, action)
             commands = self.produce_commands(map, ships_to_planets_assignment, start_time)
-            self.log(f'{dt.datetime.now()}: commands: {commands}')
 
-            self.log(f'{dt.datetime.now()}: sending...')
+            self.log(f'{dt.datetime.now()}: sending commands {commands}')
             self.game.send_command_queue(commands)
-            self.log(f'{dt.datetime.now()}: sent commands')
 
     def log(self, value):
         with self.log_file.open('a') as fp:
