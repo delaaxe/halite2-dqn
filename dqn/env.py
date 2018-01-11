@@ -6,6 +6,7 @@ import datetime as dt
 import multiprocessing
 
 import requests
+import requests.adapters
 import numpy as np
 import gym
 import gym.spaces
@@ -20,28 +21,30 @@ broker_process = None  # keep global to avoid pickling issues
 class Broker:
     def __init__(self, base_url: str):
         self.base_url = base_url
+        self.session = requests.Session()
+        #self.session.mount('http://localhost', requests.adapters.HTTPAdapter(max_retries=10))
 
     def ping(self):
-        response = requests.get(f'{self.base_url}/ping', )
+        response = self.session.get(f'{self.base_url}/ping', )
         assert response.status_code == requests.codes.ok
         return response.content.decode()
 
     def send_action(self, action):
-        response = requests.post(f'{self.base_url}/gym-to-halite', data=pickle.dumps(action), timeout=1)
+        response = self.session.post(f'{self.base_url}/gym-to-halite', data=pickle.dumps(action), timeout=1)
         assert response.status_code == requests.codes.ok
 
     def receive_state(self, timeout=2):
-        response = requests.get(f'{self.base_url}/halite-to-gym', timeout=timeout)
+        response = self.session.get(f'{self.base_url}/halite-to-gym', timeout=timeout)
         assert response.status_code == requests.codes.ok
         return pickle.loads(response.content)
 
     def reset(self):
-        response = requests.get(f'{self.base_url}/reset', timeout=1)
+        response = self.session.get(f'{self.base_url}/reset', timeout=1)
         assert response.status_code == requests.codes.ok
 
     def kill(self):
         try:
-            requests.get(f'{self.base_url}/kill', timeout=.001)
+            self.session.get(f'{self.base_url}/kill', timeout=.001)
         except (requests.ReadTimeout, requests.ConnectionError):
             pass
 
@@ -104,7 +107,7 @@ class HaliteEnv(gym.Env):
         try:
             self.broker.send_action(action)
             self.state, map = self.broker.receive_state(timeout=2)
-        except requests.ReadTimeout:
+        except (requests.ReadTimeout, requests.ConnectionError):
             me = self.previous_map.get_me()
             players = self.previous_map.all_players()
             my_ships_count = len(me.all_ships())
@@ -170,7 +173,7 @@ class HaliteEnv(gym.Env):
         if width % 2 == 1:
             width += 1
         height = int(width * 2/3)
-        command += ['--quiet', '--timeout', '--dimensions', f'{width} {height}']
+        command += ['--timeout', '--dimensions', f'{width} {height}']
         command += ['python MyQLearningBot.py', 'python MyMLStarterBot.py']
         if random.randint(0, 1):
             command += ['python MyMLStarterBot.py', 'python MyMLStarterBot.py']

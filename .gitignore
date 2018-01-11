@@ -100,3 +100,7 @@ ENV/
 
 .idea
 replays
+
+dqn_model.pkl
+stats.csv
+submissions.zip

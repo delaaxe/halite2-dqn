@@ -113,6 +113,7 @@ def main():
 
             if done:
                 info = {
+                    'date': str(dt.datetime.now()),
                     'episode': len(episode_rewards),
                     **info,
                     'win_rate': win_rate,
